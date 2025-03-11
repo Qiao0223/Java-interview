@@ -703,7 +703,82 @@
 - **多线程读多写少 → `ConcurrentHashMap`**
 - **高并发写入 → `ConcurrentHashMap`（比 `Collections.synchronizedMap` 更高效）**
 
-# 18. ConcurrentHashMap同步机制
+# 18. HashMap 添加值的过程
+
+在 `HashMap` 中，`put(K key, V value)` 方法用于**存储键值对**，底层采用 **数组 + 链表 + 红黑树** 的结构进行存储。整个过程可以分为 **计算哈希值、计算索引、插入数据、处理哈希冲突、扩容** 等步骤。
+
+---
+
+## **1️⃣ 计算哈希值**
+
+- `HashMap` 先计算 **Key 的哈希值（hashCode）**，然后对其进行优化，以减少哈希冲突，使哈希值更加均匀分布。
+
+---
+
+## **2️⃣ 计算索引**
+
+- 通过 `hash 值 % 数组长度`（更优化的是 `hash & (length - 1)`）计算**索引位置**，确定数据存放的数组槽位（Bucket）。
+
+---
+
+## **3️⃣ 插入数据**
+
+- **如果计算出的索引位置为空**，则直接存入 `key-value`。
+- **如果索引位置已有元素（哈希冲突）**，则使用 **链表** 或 **红黑树** 解决冲突：
+    - **JDK 1.7 及以前**：采用**链表**存储（头插法）。
+    - **JDK 1.8 及以后**：
+        - **如果链表长度 ≤ 8**，仍使用链表存储。
+        - **如果链表长度 > 8**，转换为**红黑树**，提高查询性能。
+
+---
+
+## **4️⃣ 处理 Key 重复**
+
+- **如果 Key 已经存在**，则更新原来的 `value`，并返回旧值。
+- **如果 Key 不存在**，则插入新节点。
+
+---
+
+## **5️⃣ 触发扩容**
+
+- `HashMap` **默认初始容量为 16，负载因子 0.75**，即当 **元素个数超过 `16 * 0.75 = 12` 时**，会触发**扩容**。
+- **扩容方式**：
+    1. **数组容量翻倍（变为 2 倍）**。
+    2. **重新计算哈希值，重新分配索引位置（rehash）**，减少冲突。
+
+---
+
+## **6️⃣ 过程总结**
+
+1. 计算 `key` 的哈希值 `hashCode`，再通过 `hash` 计算索引 `index`。
+2. **如果索引位置为空**，直接插入 `key-value`。
+3. **如果索引位置已有数据（哈希冲突）**：
+    - **链表长度 ≤ 8**，则使用**链表**存储。
+    - **链表长度 > 8**，转换为 **红黑树**。
+4. **如果 Key 已存在**，则更新 `value`。
+5. **如果元素个数超过阈值（默认 `12`），则触发扩容**。
+
+---
+
+## **7️⃣ 重点优化建议**
+
+|**优化点**|**作用**|
+|---|---|
+|**合理设置初始容量**|避免频繁扩容，提高性能|
+|**减少哈希冲突**|设计良好的 `hashCode()` 方法，均匀分布数据|
+|**使用 `LinkedHashMap`**|需要保持插入顺序时|
+|**并发场景使用 `ConcurrentHashMap`**|`HashMap` **线程不安全**，高并发使用 **线程安全的 `ConcurrentHashMap`**|
+
+---
+
+### **🔹 结论**
+
+- `HashMap` **先计算哈希值**，然后通过**索引存储**。
+- 发生**哈希冲突**时，JDK 1.8 **链表 + 红黑树** 方式存储，提高查询效率。
+- **当元素超过阈值时，触发扩容**，进行 **rehash** 重新分配索引。
+- `HashMap` **非线程安全**，在并发场景下需使用 `ConcurrentHashMap`。
+
+# 19. ConcurrentHashMap同步机制
 
 在 Java 8 中，`ConcurrentHashMap` 采用了 **CAS（Compare-And-Swap）+ `synchronized`** 结合的方式来保证高并发环境下的线程安全。
 
@@ -792,7 +867,7 @@ CAS（比较并交换）是一种**乐观锁**机制，在 Java 中由 `Unsafe.c
 
 JDK 8 通过 **CAS + `synchronized`** 取代了**分段锁**，让 `ConcurrentHashMap` 既具备高并发性能，又能保证线程安全，是高并发场景下的最佳选择！🔥
 
-# 19. 哈希冲突的处理办法
+# 20. 哈希冲突的处理办法
 
 哈希冲突是指 **不同的键（Key）在哈希表中计算出的哈希值相同**，导致它们映射到相同的存储位置（索引）。为了确保哈希表能正确存储和检索数据，需要采用**冲突解决策略**。
 
@@ -921,7 +996,7 @@ JDK 8 通过 **CAS + `synchronized`** 取代了**分段锁**，让 `ConcurrentHa
 - **分布式存储/缓存** → **一致性哈希**
 - **长期存储大量数据** → **扩容 & 再哈希**
 
-# 20. 线程池的类型
+# 21. 线程池的类型
 
 ## **1️⃣ `ThreadPoolExecutor` 线程池架构**
 
@@ -1018,7 +1093,7 @@ JDK 8 通过 **CAS + `synchronized`** 取代了**分段锁**，让 `ConcurrentHa
 3. **任务需要严格顺序执行**（如日志） → `SingleThreadExecutor`
 4. **定时任务**（如心跳检测、定时备份） → `ScheduledThreadPool`
 
-# 21. 线程池的拒绝策略
+# 22. 线程池的拒绝策略
 
 当线程池 **任务队列已满**，且**线程数量达到最大值**时，提交的新任务会被**拒绝执行**。此时，`ThreadPoolExecutor` 提供了 **4 种默认的拒绝策略**，可通过 `setRejectedExecutionHandler()` 自定义策略。
 
@@ -1097,7 +1172,7 @@ JDK 8 通过 **CAS + `synchronized`** 取代了**分段锁**，让 `ConcurrentHa
 - **保证最新任务（如消息处理）** → `DiscardOldestPolicy`
 - **降低系统压力（如限流）** → `CallerRunsPolicy`
 
-# 22. 线程池的工作流程
+# 23. 线程池的工作流程
 
 ## **1️⃣ 线程池的执行流程**
 
@@ -1185,7 +1260,7 @@ JDK 8 通过 **CAS + `synchronized`** 取代了**分段锁**，让 `ConcurrentHa
 |**拒绝策略触发**|线程池满了，执行 `RejectedExecutionHandler`|
 |**任务执行完毕**|线程回收，非核心线程空闲超时后销毁|
 
-# 23. JVM 内存模型
+# 24. JVM 内存模型
 
 ## **1️⃣ JVM 内存模型的组成**
 
@@ -1302,7 +1377,7 @@ JMM 规定：
 | **PC 寄存器**         | 线程私有     | 当前执行的字节码地址   |
 | **本地方法栈**          | 线程私有     | 调用 Native 方法 |
 
-# 24. 堆内存模型划分
+# 25. 堆内存模型划分
 
 ### **堆内存模型划分（Java Heap Memory Structure）**
 
@@ -1426,7 +1501,7 @@ JVM 采用不同的垃圾回收策略，提高 GC 效率：
 |**老年代**|长生命周期对象|老年代满|GC 频率低，Full GC 耗时长|
 |**元空间（JDK 8+）**|类元信息、静态变量|类加载过多|使用本地内存，不在堆|
 
-# 25. `new` 一个对象在 JVM 内存模型中的存放情况
+# 26. `new` 一个对象在 JVM 内存模型中的存放情况
 
 在 Java 中，使用 `new` 关键字创建对象时，JVM 需要在**内存模型**中进行一系列操作，包括**分配内存、初始化对象、返回引用**等。对象的不同部分会存放在不同的内存区域。
 
@@ -1525,7 +1600,7 @@ public class Person {
 ✅ **栈（Stack）** 存储**对象引用**（指向堆内存的地址）。  
 ✅ **JVM 优化：TLAB、栈上分配、逃逸分析** 提高性能。
 
-# 26. 类加载（Class Loading）存放位置
+# 27. 类加载（Class Loading）存放位置
 
 Java **类加载（Class Loading）** 是 JVM 在运行时**动态加载 `.class` 文件**的过程。类的元信息会存放在**方法区（JDK 8+ 为元空间 Metaspace）**。
 
@@ -1604,7 +1679,7 @@ Java **类加载（Class Loading）** 是 JVM 在运行时**动态加载 `.class
 
 🚀 **JDK 8 的 Metaspace 不受堆内存限制，避免了 `PermGen OOM` 问题，提高了 JVM 性能！** 💡
 
-# 27. 垃圾回收
+# 28. 垃圾回收
 
 ## **1️⃣ GC 触发条件**
 
@@ -1740,7 +1815,7 @@ JVM 提供了**不同的垃圾回收器**，适用于不同的应用场景。
 |**G1 GC**|适合大内存（默认）|JVM 4GB+ 大内存应用|
 |**ZGC**|超低延迟（<10ms）|100GB+ 大数据应用|
 
-# 28. G1（Garbage First）垃圾回收器的回收步骤
+# 29. G1（Garbage First）垃圾回收器的回收步骤
 
 G1（Garbage First）是**JDK 9+ 默认 GC**，专为**大内存低延迟应用**设计，采用**区域化（Region-based）+ 并发回收**，减少**STW（Stop-the-world）时间**。
 
@@ -1918,7 +1993,7 @@ G1 GC 主要分为以下 5 个阶段：
 
 🚀 **G1 GC 采用分区+并发+可预测停顿，适用于大内存低延迟应用！** 💡
 
-# 29. G1 GC特点与局限性
+# 30. G1 GC特点与局限性
 
 G1（Garbage First）GC 采用**区域化管理**内存，结合**并发标记**和**混合回收**，在**低延迟和大内存应用**中表现优秀。但它也有一些局限性。
 
@@ -2076,7 +2151,7 @@ G1（Garbage First）GC 采用**区域化管理**内存，结合**并发标记**
 
 💡 **G1 GC 通过区域化 + 并发回收提升了吞吐量，但仍需调优 Mixed GC，防止 Full GC 影响性能！** 🔥
 
-# 30. volatile关键字底层原理
+# 31. volatile关键字底层原理
 
 ### **`volatile` 关键字的底层原理**
 
@@ -2172,7 +2247,7 @@ G1（Garbage First）GC 采用**区域化管理**内存，结合**并发标记**
 ❌ **`volatile` 不保证原子性，不能替代 `synchronized`**。  
 🚀 **适用于状态标志、DCL 单例，但不适用于 `i++` 等复合操作**！
 
-# 31. JIT（Just-In-Time，即时编译器）
+# 32. JIT（Just-In-Time，即时编译器）
 
 JIT（即时编译器）是 **JVM（Java 虚拟机）中的核心组件**，用于**动态将字节码编译为本地机器码，提高 Java 程序执行效率**。
 
@@ -2276,7 +2351,7 @@ JIT **通过逃逸分析优化对象分配，减少 GC 压力**。
 ✅ **两种 JIT 编译器：C1（快速启动） & C2（高性能）**。  
 ✅ **优化策略包括方法内联、循环展开、逃逸分析等**，减少 GC 负担。
 
-# 32. 反射及其原理
+# 33. 反射及其原理
 
 ## **1️⃣ 什么是反射（Reflection）？**
 
@@ -2420,7 +2495,7 @@ CGLIB 通过**字节码增强**技术（ASM），比反射快 **5~10 倍**。
 
 🚀 **合理使用反射，避免性能损耗，提升 Java 应用的灵活性！**
 
-# 33. synchronized底层实现
+# 34. synchronized底层实现
 
 在 Java 并发编程中，`synchronized` 关键字用于**保证多线程访问共享资源时的互斥性**，即同一时刻最多只有一个线程可以执行 `synchronized` 代码块。它是 **Java 提供的内置锁（Intrinsic Lock 或 Monitor Lock）**，由 JVM 实现。
 
@@ -2589,7 +2664,7 @@ cpp
 
 💡 **合理选择 `synchronized` 和 `Lock`，提高并发性能！🚀**
 
-# 34. 死锁产生的原因及解决方案
+# 35. 死锁产生的原因及解决方案
 
 ## **1️⃣ 什么是死锁？**
 
@@ -2730,7 +2805,7 @@ cpp
 
 🚀 **合理设计线程同步和数据库事务管理，防止死锁，提高系统稳定性！🔥**
 
-# 35. 线程池死锁的原因及解决方案
+# 36. 线程池死锁的原因及解决方案
 
 在 Java 线程池（`ThreadPoolExecutor`）中，**死锁（Deadlock）** 可能会导致所有线程无法继续执行，最终应用卡死或性能下降。死锁通常发生在**任务之间存在循环依赖** 或 **线程资源不足** 的情况下。
 
@@ -2848,7 +2923,7 @@ cpp
 
 🚀 **合理配置 Java 线程池，避免死锁，提高并发处理能力！🔥**
 
-# 36. 线上线程池死锁的监控、排查与解决方案
+# 37. 线上线程池死锁的监控、排查与解决方案
 
 ## **1️⃣ 如何监控线上线程池死锁？**
 
@@ -2985,7 +3060,7 @@ cpp
 
 🚀 **线上线程池死锁的监控、排查、优化是保障系统稳定性的重要手段，合理设计线程池，避免死锁，提高系统可靠性！🔥**
 
-# 37. 线上流量激增导致线程池被打垮的处理方案
+# 38. 线上流量激增导致线程池被打垮的处理方案
 
 当线上系统遇到**流量激增**，导致**线程池被打满**，可能会出现以下问题：
 
@@ -3072,7 +3147,7 @@ cpp
 
 🚀 **合理优化线程池，使用限流、缓存、异步处理，高效应对流量激增！🔥**
 
-# 38. 线上 CPU 突然飙升的定位方案
+# 39. 线上 CPU 突然飙升的定位方案
 
 当线上系统出现 **CPU 突然飙升**，需要快速分析 **是系统层面的问题，还是应用层面的问题**，并采取合适的排查手段。
 
@@ -3153,7 +3228,7 @@ cpp
 
 🚀 **合理监控与优化，保障线上系统稳定运行！🔥**
 
-# 39. 线程和进程的区别
+# 40. 线程和进程的区别
 
 ## **1️⃣ 什么是进程和线程？**
 
@@ -3195,7 +3270,7 @@ cpp
 - **线程切换比进程切换快，适用于高并发任务**。
 - **进程间隔离性更强，适用于大型分布式应用**。
 
-# 40. 并行 vs 并发
+# 41. 并行 vs 并发
 
 ## **1️⃣ 定义**
 
@@ -3229,7 +3304,7 @@ cpp
 - **多核 CPU 支持并行，单核 CPU 也能实现并发**。
 - **并行适用于计算密集型任务，并发适用于高吞吐业务，如 Web 服务器、数据库查询**。
 
-# 41. 常用的 JDK 版本及特点
+# 42. 常用的 JDK 版本及特点
 
 ## **1️⃣ JDK 版本发展概览**
 
@@ -3312,7 +3387,7 @@ Java 主要由 **Oracle JDK** 和 **OpenJDK** 维护，每个版本**都有 LTS�
 - **JDK 17** 是目前**最佳选择**，支持 LTS，稳定性高。
 - **JDK 21** 是**最新 LTS**，如果项目可以接受新特性，建议直接升级。
 
-# 42. Object 创建过程中内存的分配过程
+# 43. Object 创建过程中内存的分配过程
 
 ## **1️⃣ Object 创建的整体流程**
 
@@ -3386,7 +3461,7 @@ Java 主要由 **Oracle JDK** 和 **OpenJDK** 维护，每个版本**都有 LTS�
 - **通过指针碰撞或空闲列表进行高效内存管理**。
 - **完整初始化后，JVM 才会返回对象引用，供程序使用**。
 
-# 43. 引用存放位置
+# 44. 引用存放位置
 
 在 Java 运行时，**对象的引用和对象本身存储位置不同**：
 
@@ -3445,7 +3520,7 @@ Java 主要由 **Oracle JDK** 和 **OpenJDK** 维护，每个版本**都有 LTS�
 |**实例变量引用**|**堆（对象内部）**|**堆**|
 |**静态变量引用**|**方法区（JDK 8+ Metaspace）**|**堆**|
 
-# 44. ThreadLocal 的使用与原理
+# 45. ThreadLocal 的使用与原理
 
 ## **1️⃣ 什么是 ThreadLocal？**
 
@@ -3537,7 +3612,7 @@ Java 主要由 **Oracle JDK** 和 **OpenJDK** 维护，每个版本**都有 LTS�
 - **适用于用户会话、事务管理、数据库连接等场景**，避免锁竞争，提高并发性能。
 - **必须手动 `remove()` 清理，防止线程池复用导致的内存泄漏**。
 
-# 45. ThreadLocal 何时调用 `remove()`？
+# 46. ThreadLocal 何时调用 `remove()`？
 
 `ThreadLocal.remove()` 主要用于**防止内存泄漏**，尤其在使用**线程池**时，线程会被**复用**，如果不手动清理，**旧数据可能被下一个任务误用**。
 
@@ -3602,7 +3677,7 @@ Java 主要由 **Oracle JDK** 和 **OpenJDK** 维护，每个版本**都有 LTS�
 
 🚀 **在高并发系统中，正确使用 `remove()`，防止线程池复用导致的内存泄漏！🔥**
 
-# 46. Java 四种引用类型（强引用、软引用、弱引用、虚引用）
+# 47. Java 四种引用类型（强引用、软引用、弱引用、虚引用）
 
 Java 提供了 **四种不同级别的引用类型**，用于**控制对象的生命周期**，优化垃圾回收（GC），避免内存泄漏。
 
@@ -3721,7 +3796,7 @@ Java 提供了 **四种不同级别的引用类型**，用于**控制对象的�
 
 🚀 **合理使用引用类型，优化内存管理，提高 GC 效率！🔥**
 
-# 47. String vs. StringBuffer vs. StringBuilder 对比
+# 48. String vs. StringBuffer vs. StringBuilder 对比
 
 在 Java 中，`String`、`StringBuffer` 和 `StringBuilder` 都可以用于**字符串操作**，但它们的**可变性、线程安全性和性能**存在重要区别。
 
@@ -3803,3 +3878,352 @@ Java 提供了 **四种不同级别的引用类型**，用于**控制对象的�
 |**单线程，大量拼接操作**|**`StringBuilder`（最高性能）**|
 
 🚀 **合理选择 `String`、`StringBuffer`、`StringBuilder`，提升性能，提高代码质量！🔥**
+
+# 49. 为什么 `String` 设计为 `final` 修饰？
+
+在 Java 中，`String` 是 **不可变（Immutable）** 的，它的 `final` 修饰符**确保了不可变性**，从而带来安全性、性能优化和多线程安全等优势。
+
+---
+
+## **1️⃣ `final` 修饰 `String` 的作用**
+
+1. **防止继承（final 类）**
+    - `final class String` **不能被继承**，避免子类修改其行为。
+2. **保证不可变性**
+    - `String` **内部使用 `final char[]` 存储字符串**，保证内容不可变。
+
+---
+
+## **2️⃣ `String` 设计为 `final` 的核心原因**
+
+### **📌 1. 线程安全**
+
+- `String` 是不可变的，多个线程可以安全共享，无需加锁。
+
+---
+
+### **📌 2. 方便字符串常量池（String Pool）优化**
+
+- **JVM 采用字符串常量池优化**，相同字符串**复用**，减少对象创建。
+- **示例**：
+
+```
+String s1 = "Hello";
+String s2 = "Hello"; // 复用 s1，减少内存占用
+System.out.println(s1 == s2); // true
+```
+
+- **如果 `String` 可变**，修改 `s1` 会影响 `s2`，破坏字符串池机制。
+
+---
+
+### **📌 3. 作为 HashMap Key，保证哈希一致**
+
+- `String` 作为 `HashMap` 的 `Key` 时，`final` 确保 `hashCode` **不会变化**。
+- **示例**：
+```
+Map<String, Integer> map = new HashMap<>();
+map.put("Alice", 25);
+```
+- **如果 `String` 可变，修改 Key 会导致 `get()` 失败！**
+
+---
+
+### **📌 4. 安全性（防止篡改）**
+
+- `String` 常用于 **用户名、密码、数据库 URL**，`final` 避免修改带来的安全问题。
+- **如果 `String` 可变，恶意代码可能篡改 URL，导致数据库被攻击！**
+
+---
+
+### **📌 5. `final` 避免继承，防止行为修改**
+
+- **如果 `String` 允许继承，子类可能篡改 `equals()` 或 `hashCode()`，破坏一致性。**
+- **示例（不允许继承）：**
+- **如果 `String` 可继承，可能导致不安全的子类重写方法，影响 JVM 运行。**
+
+---
+
+## **3️⃣ 结论**
+
+|**原因**|**作用**|
+|---|---|
+|**线程安全**|不可变对象，多个线程可共享|
+|**支持字符串池优化**|`String` 复用，减少内存占用|
+|**保证哈希一致性**|`HashMap` Key 不变，避免数据丢失|
+|**增强安全性**|防止篡改数据库 URL、密码|
+|**防止继承破坏行为**|`final` 避免子类修改 `hashCode`|
+
+# 50. 注解原理详解
+
+## **1️⃣ 什么是 Java 注解（Annotation）？**
+
+Java **注解（Annotation）** 是一种**元数据**，用于给**类、方法、字段、参数**等添加**额外信息**，可用于**编译期处理、运行时反射**等。注解本身不会影响代码逻辑，而是用于**标记和解析**。
+
+---
+
+## **2️⃣ 注解的分类**
+
+|**类别**|**特点**|**示例**|
+|---|---|---|
+|**编译期注解**|只在编译期生效，不影响运行时|`@Override`、`@Deprecated`|
+|**运行时注解**|运行时可通过**反射**解析|`@Autowired`、`@Transactional`|
+|**元注解**|用于定义其他注解|`@Retention`、`@Target`|
+
+---
+
+## **3️⃣ 注解的底层原理**
+
+### **📌 3.1 注解的本质**
+
+- **注解是继承自 `java.lang.annotation.Annotation` 接口的特殊接口**。
+- **底层是 Java 反射机制**，通过 `Class.getAnnotations()` 获取注解信息。
+
+---
+
+### **📌 3.2 注解的生命周期（`@Retention`）**
+
+|**注解生命周期**|**作用**|**示例**|
+|---|---|---|
+|`SOURCE`|**仅在编译期生效**，不会保留到 `.class`|`@Override`、`@SuppressWarnings`|
+|`CLASS`|**存储在 `.class` 文件中**，但运行时不可获取|`@Autowired`（Spring 处理）|
+|`RUNTIME`|**运行时可通过反射获取**，用于框架解析|`@Transactional`、`@Service`|
+
+---
+
+### **📌 3.3 注解的作用范围（`@Target`）**
+
+|**作用范围**|**说明**|**示例**|
+|---|---|---|
+|`TYPE`|作用于 **类、接口、枚举**|`@Component`|
+|`METHOD`|作用于 **方法**|`@GetMapping`|
+|`FIELD`|作用于 **成员变量**|`@Autowired`|
+|`PARAMETER`|作用于 **方法参数**|`@RequestParam`|
+|`CONSTRUCTOR`|作用于 **构造方法**|`@Autowired`|
+
+---
+
+### **📌 3.4 解析运行时注解（反射）**
+
+运行时注解的底层原理是 **Java 反射**，通过 `Class` 解析：
+
+1. **获取类的 `Class` 对象**
+2. **调用 `getAnnotation(Class<T>)` 获取注解**
+3. **解析注解信息**
+
+---
+
+## **4️⃣ 注解处理机制**
+
+### **📌 4.1 运行时注解解析**
+
+框架（如 Spring、MyBatis）会**通过反射**读取注解，并执行相应的逻辑：
+
+```
+Class<?> clazz = UserService.class;
+if (clazz.isAnnotationPresent(Service.class)) {
+    System.out.println("UserService 被标记为 @Service");
+}
+```
+
+---
+
+### **📌 4.2 编译期注解（APT 处理器）**
+
+编译期注解（`@Component`、`@Entity`）可以借助 **Java APT（Annotation Processing Tool）** 在编译时**生成代码**。
+
+**APT 处理器原理：**
+
+1. **编译器发现注解**
+2. **调用 `Processor` 进行代码分析**
+3. **动态生成 `.class` 或 `.java` 文件**
+4. **编译器继续处理新的代码**
+
+🔹 **示例（APT 处理器）**
+
+```
+@SupportedAnnotationTypes("com.example.MyAnnotation")
+@SupportedSourceVersion(SourceVersion.RELEASE_8)
+public class MyAnnotationProcessor extends AbstractProcessor {
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+        // 处理注解逻辑
+        return true;
+    }
+}
+```
+
+**作用**：用于**自动代码生成（如 Lombok、Dagger、ButterKnife）**。
+
+---
+
+## **5️⃣ 框架如何使用注解**
+
+|**框架**|**使用注解**|**解析方式**|
+|---|---|---|
+|**Spring**|`@Component`、`@Autowired`|反射 (`Class.forName`)|
+|**Spring Boot**|`@EnableAutoConfiguration`|反射 + SPI 机制|
+|**JPA**|`@Entity`、`@Table`|反射 + APT|
+|**MyBatis**|`@Mapper`、`@Select`|运行时解析|
+
+---
+
+## **6️⃣ 结论**
+
+1. **注解是 Java 的元数据，主要用于标记和反射解析**。
+2. **`@Retention` 决定生命周期，`@Target` 决定作用范围**。
+3. **运行时注解可以通过反射解析（Spring、MyBatis 依赖）**。
+4. **编译期注解可用于 APT 自动生成代码（Lombok、Dagger）**。
+5. **框架通过注解管理 Bean、AOP、数据库映射，提高开发效率**。
+
+# 51. `Atomic` 原子类详解
+
+Java **`Atomic` 原子类** 是 **基于 CAS（Compare-And-Swap，比较交换）** 机制实现的 **无锁并发** 解决方案。它提供 **线程安全** 的 **原子操作**，避免使用 `synchronized` 造成的性能开销。
+
+---
+
+## **1️⃣ 什么是 `Atomic` 原子类？**
+
+- **`Atomic` 系列类提供了基本数据类型的原子操作，支持并发环境下的安全修改。**
+- **基于 CAS 机制**（无需加锁 `synchronized`）。
+- **适用于高并发计数、状态更新、无锁操作。**
+
+---
+
+## **2️⃣ `Atomic` 类的分类**
+
+`Atomic` 包含 **四大类原子操作**：
+
+|**类别**|**常见类**|**作用**|
+|---|---|---|
+|**基本类型原子操作**|`AtomicInteger`、`AtomicLong`、`AtomicBoolean`|适用于 **int、long、boolean** 变量的原子操作|
+|**数组元素原子操作**|`AtomicIntegerArray`、`AtomicLongArray`|适用于 **数组元素** 的原子更新|
+|**对象引用原子操作**|`AtomicReference<T>`、`AtomicStampedReference`|适用于 **对象引用** 的原子更新|
+|**字段更新原子操作**|`AtomicIntegerFieldUpdater`、`AtomicLongFieldUpdater`|**用于对象字段的原子修改**|
+
+---
+
+## **3️⃣ `Atomic` 原子类的底层原理**
+
+### **📌 3.1 `Atomic` 原子类基于 CAS 机制**
+
+- **CAS（Compare-And-Swap）**：比较并交换，是 **一种无锁算法**。
+- **核心思想**：
+    1. 读取当前值 **V**。
+    2. 计算新值 **N**。
+    3. **使用 `CAS(V, Expected, N)` 比较当前值 `V` 是否等于 `Expected`**：
+        - **相等** → 说明没有其他线程修改，**更新成功**。
+        - **不相等** → 说明发生并发冲突，**重试（自旋）**。
+
+🔹 **JDK 底层使用 `Unsafe` 类 + CPU 指令（`cmpxchg`） 实现 CAS 操作**：
+
+- `compareAndSwapInt` 是 **CPU 级别的 CAS 指令**，实现原子操作。
+
+---
+
+## **4️⃣ 常见 `Atomic` 类**
+
+### **📌 4.1 `AtomicInteger`（原子整数）**
+
+适用于 **高并发计数**，如访问量统计、线程计数。
+
+🔹 **示例**
+```
+AtomicInteger count = new AtomicInteger(0);
+count.incrementAndGet(); // +1
+count.getAndAdd(5);      // +5
+System.out.println(count.get()); // 获取值
+
+```
+🔹 **常用方法**
+
+|**方法**|**作用**|
+|---|---|
+|`incrementAndGet()`|**自增 +1**（返回新值）|
+|`decrementAndGet()`|**自减 -1**（返回新值）|
+|`addAndGet(int delta)`|**加指定值**|
+|`getAndSet(int newValue)`|**设置新值并返回旧值**|
+|`compareAndSet(int expect, int update)`|**CAS 更新值**|
+
+---
+
+### **📌 4.2 `AtomicReference<T>`（原子引用）**
+
+适用于 **保证对象引用的原子更新**，防止并发修改对象指针。
+
+🔹 **示例**
+```
+AtomicReference<String> atomicString = new AtomicReference<>("Hello");
+atomicString.compareAndSet("Hello", "World");
+System.out.println(atomicString.get()); // World
+```
+🔹 **常用方法**
+
+|**方法**|**作用**|
+|---|---|
+|`get()`|获取当前对象|
+|`set(T newValue)`|设置新对象|
+|`compareAndSet(T expect, T update)`|CAS 更新对象|
+|`getAndUpdate(UnaryOperator<T> updateFunction)`|通过函数更新对象|
+
+---
+
+### **📌 4.3 `AtomicStampedReference<T>`（解决 ABA 问题）**
+
+**ABA 问题**：CAS 只比较值，可能导致 **"A → B → A" 变化被错误认为没有修改**。
+
+- `AtomicStampedReference` **加入版本号 `stamp`**，防止 `ABA` 问题。
+
+🔹 **示例**
+```
+AtomicStampedReference<Integer> atomicStamped = new AtomicStampedReference<>(100, 1);
+int stamp = atomicStamped.getStamp(); // 获取版本号
+atomicStamped.compareAndSet(100, 200, stamp, stamp + 1);
+```
+🔹 **适用于**：**避免 ABA 问题的高并发场景**（如队列、栈操作）。
+
+---
+
+### **📌 4.4 `AtomicIntegerArray`（原子数组）**
+
+用于 **保证数组元素的原子性更新**，多个线程可安全修改数组值。
+
+🔹 **示例**
+```
+AtomicIntegerArray array = new AtomicIntegerArray(5);
+array.set(0, 10);
+array.incrementAndGet(0); // 数组 index=0 元素 +1
+System.out.println(array.get(0)); // 11
+```
+---
+
+## **5️⃣ `Atomic` vs `synchronized`（对比）**
+
+|**对比项**|**Atomic 原子类**|**synchronized**|
+|---|---|---|
+|**锁机制**|**无锁（CAS 自旋）**|**悲观锁（线程阻塞）**|
+|**性能**|**高（适用于高并发）**|**低（存在上下文切换）**|
+|**线程安全**|**保证单个变量线程安全**|**保证整个代码块/方法安全**|
+|**适用场景**|**高并发计数、状态更新**|**复杂的共享资源管理**|
+
+---
+
+## **6️⃣ `Atomic` 适用场景**
+
+|**场景**|**推荐 `Atomic` 类**|
+|---|---|
+|**高并发计数（访问量统计）**|`AtomicInteger` / `AtomicLong`|
+|**CAS 方式更新对象引用**|`AtomicReference<T>`|
+|**多线程安全的数组**|`AtomicIntegerArray`|
+|**避免 ABA 问题**|`AtomicStampedReference`|
+
+---
+
+## **7️⃣ 结论**
+
+1. **`Atomic` 原子类基于 CAS（无锁机制），比 `synchronized` 轻量级，适用于高并发。**
+2. **适用于高并发计数、状态更新、线程安全队列等场景。**
+3. **`AtomicStampedReference` 解决 `ABA` 问题，适用于并发修改的场景。**
+4. **适用于单个变量的线程安全更新，复杂同步仍需 `synchronized` 或 `Lock`。**
+
+🚀 **掌握 `Atomic` 原子类，优化并发性能，提升 Java 高并发编程能力！🔥**
